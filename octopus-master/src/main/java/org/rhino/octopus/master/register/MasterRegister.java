@@ -13,11 +13,17 @@ import org.rhino.octopus.base.configuration.OctopusConfiguration;
 import org.rhino.octopus.base.configuration.Property;
 import org.rhino.octopus.base.constants.RegistConstants;
 import org.rhino.octopus.base.exception.OctopusException;
+import org.rhino.octopus.base.model.flow.Flow;
 import org.rhino.octopus.base.util.IPUtil;
 import org.rhino.octopus.master.context.MasterContext;
-import org.rhino.octopus.master.listener.local.executor.ActiveCommandExecutor;
+import org.rhino.octopus.master.executor.OctopusScheduler;
+import org.rhino.octopus.master.service.FlowService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MasterRegister implements Watcher {
+	
+	private static final Logger logger = LoggerFactory.getLogger(MasterRegister.class);
 
 	private static MasterRegister instance = new MasterRegister();
 
@@ -31,12 +37,12 @@ public class MasterRegister implements Watcher {
 
 	public void open() throws OctopusException{
 		try {
+			logger.debug("开始启动Master监听器...");
 			OctopusConfiguration configuration = MasterContext.getInstance()
 					.getConfiguration();
 			Property zookeeperProp = configuration
 					.getProperty(OctopusConfiguration.ConfigurationItem.ZOO_KEEPER);
 			this.zk = new ZooKeeper(zookeeperProp.getValue(), 3000, null);
-			
 			while(this.zk.getState() != ZooKeeper.States.CONNECTED){
 				try {
 					Thread.sleep(1000L);
@@ -51,12 +57,14 @@ public class MasterRegister implements Watcher {
 			
 			List<String> masterNodeList = this.zk.getChildren(RegistConstants.MASTER_REGIST_NODE, false);
 			if(masterNodeList.size() > 1){
-				throw new OctopusException("Master节点个数不能超过两台");
+				throw new OctopusException("Master's number can not larger than 2");
 			}
 			this.createNodeIfNotExists(curNodeName, CreateMode.EPHEMERAL);
 			this.changeNodeStatus(curNodeName, MasterContext.MasterStatus.STANDBY);
 			this.zk.getChildren(RegistConstants.MASTER_REGIST_NODE, this);
+			logger.debug("Master 节点监视器启动完毕");
 		} catch (Exception e) {
+			logger.error("Launch master monitor failed ", e);
 			throw new OctopusException(e);
 		}
 	}
@@ -64,9 +72,12 @@ public class MasterRegister implements Watcher {
 	public void close(){
 		if(this.zk != null){
 			try {
+				logger.debug("开始关闭Master监听器");
 				this.zk.close();
+				logger.debug("关闭Master监听器完毕");
 			} catch (InterruptedException e) {
 				e.printStackTrace();
+				logger.error("Shutdown master monitor failed ", e);
 			}
 		}
 	}
@@ -91,13 +102,19 @@ public class MasterRegister implements Watcher {
 	public void process(WatchedEvent evt) {
 		try{
 			if(EventType.NodeChildrenChanged.equals(evt.getType())){
+				logger.debug("监听到Master节点数量发生变化");
 				List<String> masterNodeList = this.zk.getChildren(RegistConstants.MASTER_REGIST_NODE, this);
 				if(masterNodeList.size() == 1 && masterNodeList.get(0).equals(IPUtil.getLocalIPAddress())){
-					new ActiveCommandExecutor().execute();
+					logger.debug("当前机器准备自动切换到Active状态");
+					FlowService flowService = (FlowService)MasterContext.getInstance().getContext().getBean("flowService");
+					List<Flow> flowList = flowService.queryFlowList();
+					OctopusScheduler.getInstance().addAll(flowList);
+					MasterRegister.getInstance().changeNodeStatus(RegistConstants.getMasterNode(), MasterContext.MasterStatus.ACTIVE);
+					logger.debug("机器自动切换到Active状态完毕");
 				}
 			}
 		}catch(Exception e){
-			
+			logger.error("Master monitor has an error while dealing with the number of master changed", e);
 		}
 	}
 }

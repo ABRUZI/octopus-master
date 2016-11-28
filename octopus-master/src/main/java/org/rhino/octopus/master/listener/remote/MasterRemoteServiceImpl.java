@@ -13,7 +13,7 @@ public class MasterRemoteServiceImpl implements MasterRemoteService.Iface{
 		flow.setId(flowId);
 		flow.setCronExpr(cronExpr);
 		try {
-			OctopusScheduler.getInsatnce().add(flow);
+			OctopusScheduler.getInstance().add(flow);
 		} catch (Exception e) {
 			throw new TException(e);
 		}
@@ -24,7 +24,7 @@ public class MasterRemoteServiceImpl implements MasterRemoteService.Iface{
 		Flow flow = new Flow();
 		flow.setId(flowId);
 		try {
-			OctopusScheduler.getInsatnce().remove(flow);
+			OctopusScheduler.getInstance().remove(flow);
 		} catch (Exception e) {
 			throw new TException(e);
 		}

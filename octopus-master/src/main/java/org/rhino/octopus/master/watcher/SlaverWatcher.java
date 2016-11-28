@@ -15,12 +15,16 @@ import org.rhino.octopus.base.configuration.Property;
 import org.rhino.octopus.base.constants.RegistConstants;
 import org.rhino.octopus.base.exception.OctopusException;
 import org.rhino.octopus.master.context.MasterContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Slaver节点监听器，可以近似实时的提供当前可用的Slaver节点列表
  * @author 王铁
  */
 public class SlaverWatcher implements Watcher{
+	
+	private static final Logger logger = LoggerFactory.getLogger(SlaverWatcher.class);
 	
 	private static SlaverWatcher instance = new SlaverWatcher();
 	
@@ -38,6 +42,7 @@ public class SlaverWatcher implements Watcher{
 	
 	public void open()throws OctopusException{
 		try {
+			logger.debug("启动Slaver监听器...");
 			Property zookeeperProp = MasterContext.getInstance().getConfiguration().getProperty(OctopusConfiguration.ConfigurationItem.ZOO_KEEPER);
 			this.zk = new ZooKeeper(zookeeperProp.getValue(), 3000, null);
 			while(this.zk.getState() != ZooKeeper.States.CONNECTED){
@@ -47,13 +52,15 @@ public class SlaverWatcher implements Watcher{
 					e.printStackTrace();
 				}
 			}
+			logger.debug("开始注册Slaver节点监听器");
 			this.createNodeIfNotExists(RegistConstants.ROOT_REGIST_NODE, CreateMode.PERSISTENT);
 			this.createNodeIfNotExists(RegistConstants.SLAVERS_REGIST_NODE, CreateMode.PERSISTENT);
 			List<String> currentNodeList = this.zk.getChildren(RegistConstants.SLAVERS_REGIST_NODE, this);
 			this.slaverNodeList.clear();
 			this.slaverNodeList.addAll(currentNodeList);
-			
+			logger.debug("注册Slaver节点监听器完毕");
 		} catch (Exception e) {
+			logger.error("Launch slaver moniter failed", e);
 			throw new OctopusException(e);
 		}
 	}
@@ -68,10 +75,13 @@ public class SlaverWatcher implements Watcher{
 	
 	public void close()throws OctopusException{
 		if(this.zk != null){
+			logger.debug("开始关闭Slaver监听器...");
 			try {
 				this.zk.close();
+				logger.debug("关闭Slaver监听器完毕");
 			} catch (InterruptedException e) {
 				e.printStackTrace();
+				logger.error("shutdown slaver monitor failed", e);
 			}
 		}
 	}
@@ -86,10 +96,13 @@ public class SlaverWatcher implements Watcher{
 	public void process(WatchedEvent evt) {
 		if(EventType.NodeChildrenChanged.equals(evt.getType())){
 			try{
+				logger.debug("监听到Slaver节点数量发生变化");
 				List<String> currentNodeList = this.zk.getChildren(RegistConstants.SLAVERS_REGIST_NODE, this);
 				this.slaverNodeList.clear();
 				this.slaverNodeList.addAll(currentNodeList);
+				logger.debug("Slaver节点数量变化情况同步完毕");
 			}catch(Exception e){
+				logger.error("update slaver info failed", e);
 				e.printStackTrace();
 			}
 		}

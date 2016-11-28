@@ -17,7 +17,7 @@ public class ShutdownCommandExecutor implements LocalCommandExecutor {
 	public void execute() throws OctopusException {
 		SlaverWatcher.getInstance().close();
 		RemoteListener.getInstance().close();
-		OctopusScheduler.getInsatnce().close();
+		OctopusScheduler.getInstance().close();
 		MasterRegister.getInstance().close();
 		new Timer().schedule(new TimerTask(){
 			@Override

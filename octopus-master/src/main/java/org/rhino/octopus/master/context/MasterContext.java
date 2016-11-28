@@ -3,9 +3,13 @@ package org.rhino.octopus.master.context;
 import org.rhino.octopus.base.configuration.OctopusConfiguration;
 import org.rhino.octopus.base.constants.ConfConstants;
 import org.rhino.octopus.base.exception.OctopusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class MasterContext {
+	
+	private static final Logger logger = LoggerFactory.getLogger(MasterContext.class);
 	
 	private static final String COMMON_CONF_PATH = "/octopus-common.xml";
 	
@@ -26,9 +30,12 @@ public class MasterContext {
 	}
 	
 	public void init() throws OctopusException{
+		logger.debug("开始初始化系统上下文");
 		this.context = new ClassPathXmlApplicationContext("classpath*:/org/rhino/octopus/master/config/spring/applicationContext.xml");
 		String confPath = ConfConstants.getConfPath();
 		this.configuration = new OctopusConfiguration(new String[]{confPath + COMMON_CONF_PATH, confPath + MASTER_CONF_PATH});
+		logger.debug("系统上下文初始化完毕");
+		
 	}
 	
 	public ClassPathXmlApplicationContext getContext(){

@@ -12,6 +12,7 @@ import org.rhino.octopus.master.service.FlowService;
 
 /**
  * 把本台机器设置为Active状态的命令执行器
+ * @Warn 此类与MasterRegister构成了互相依赖，这不是个好设计
  * @author 王铁
  */
 public class ActiveCommandExecutor implements LocalCommandExecutor {
@@ -21,10 +22,9 @@ public class ActiveCommandExecutor implements LocalCommandExecutor {
 		MasterRegister.getInstance().changeNodeStatus(RegistConstants.getMasterNode(), MasterContext.MasterStatus.ACTIVE);
 		FlowService flowService = (FlowService)MasterContext.getInstance().getContext().getBean("flowService");
 		List<Flow> flowList = flowService.queryFlowList();
-		for(int i = 0, len = flowList.size(); i < len; i++){
-			OctopusScheduler.getInsatnce().add(flowList.get(i));
-		}
+		OctopusScheduler.getInstance().addAll(flowList);
 		MasterContext.getInstance().setStatus(MasterContext.MasterStatus.ACTIVE);
 	}
 
 }
+
